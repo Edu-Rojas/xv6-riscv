@@ -9,6 +9,24 @@ Despues se instalo RISC-V bare-metal ya que es escencial para compilar xv6.
 Para poder ejecutar el sistema operativo se intalo el emulador QEMU, el cual permite ejecutar dentro de ubuntu el xv6
 Con esto ya se esta listo para ejecutar xv6, para ello se utiliza make clean (para limpiar cualquier residuo de alguna ejecutción anterior que pudiese ocasionar un error), despues make, para ejecutar el makefile de xv6 y dejarle todo listo al emulador para que pueda ejecutar xv6 sin problema y por último se realiza make qemu para que el emulador pueda arrancar xv6 en una maquina virtual mediante la herramienta RISC-V anteriormente instalada.
 
+ Eduardo Rojas:
+# Tenia git instalado pero no Linux
+Los pasos de instalación no fueron muy complejos, sin embargo se tuvo ciertas dificultades para resolver ciertos pasos, en primer lugar en la instalacion de WSL apareció el error The operation could not be started because a required feature is not installed. Error code: Wsl/InstallDistro/Service/RegisterDistro/CreateVm/HCS/HCS_E_SERVICE_NOT_AVAILABLE, el cual se resolvió utilizando 2 comandos
+dism.exe /online /disable-feature /featurename:Microsoft-Windows-Subsystem-Linux /norestart
+y dism.exe /online /disable-feature /featurename:VirtualMachinePlatform /norestart en el powershell, reiniciando y luego reintentando la instalación, basicamente se reinicia la plataforma de máquina virtual de windows, posterior a esto, instalaron las dependencias mediante el uso de comandos sudo para realizar la instalación de las dependencias.
+
+sudo apt-get update
+sudo apt-get install build-essential
+sudo apt-get install gcc-multilib
+sudo apt install qemu qemu-utils qemu-kvm virt-manager libvirt-daemon-system libvirt-clients bridge-utils
+
+y finalmente se ingreso
+
+sudo make
+sudo make qemu-nox
+
+estos comandos fueron encontrados en un git publico como guia de instalación de XV6
+
 # Errores y soluciones
 
 Al ejecutar qemu este tenia cierto error en donde no llegaba a mostrar el prompt que verificaba el correcto funcionamiento de xv6, entonces nunca se llegaba a ejecutar bien el xv6. Para esto se reinstalo qemu para asegurar que fuese la ultima versión de manera que ejecute bien xv6, una vez reinstalado se ejecuto el comando script con la intención de que qemu logre ejecutarse de buena manera en la consola de manera que se pueda manipular xv6 posteriormente. Aparecio que no se tenian una de las herramientas, en concreto bc, por lo mismo se ocupo sudo apt install bc para instalar la herramienta y de esa manera que no falte nada para ejecutar xv6.
