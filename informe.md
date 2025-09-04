@@ -1,4 +1,5 @@
 # Informe de instalación XV6
+# Christopher Giler
 Paso a paso instalación de XV6
 # Ya se tenia git instalado asi que esa parte se va a omitir al igual que ubuntu
 En el repositorio original se copia el link del mismo repositorio para utilizar el comando git clone (link) dentro del terminal git bash de manera que se clone el repositorio dentro de mis carpetas.
@@ -9,7 +10,7 @@ Despues se instalo RISC-V bare-metal ya que es escencial para compilar xv6.
 Para poder ejecutar el sistema operativo se intalo el emulador QEMU, el cual permite ejecutar dentro de ubuntu el xv6
 Con esto ya se esta listo para ejecutar xv6, para ello se utiliza make clean (para limpiar cualquier residuo de alguna ejecutción anterior que pudiese ocasionar un error), despues make, para ejecutar el makefile de xv6 y dejarle todo listo al emulador para que pueda ejecutar xv6 sin problema y por último se realiza make qemu para que el emulador pueda arrancar xv6 en una maquina virtual mediante la herramienta RISC-V anteriormente instalada.
 
- Eduardo Rojas:
+# Eduardo Rojas:
 # Tenia git instalado pero no Linux
 Los pasos de instalación no fueron muy complejos, sin embargo se tuvo ciertas dificultades para resolver ciertos pasos, en primer lugar en la instalacion de WSL apareció el error The operation could not be started because a required feature is not installed. Error code: Wsl/InstallDistro/Service/RegisterDistro/CreateVm/HCS/HCS_E_SERVICE_NOT_AVAILABLE, el cual se resolvió utilizando 2 comandos
 dism.exe /online /disable-feature /featurename:Microsoft-Windows-Subsystem-Linux /norestart
