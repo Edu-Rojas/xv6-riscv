@@ -26,6 +26,13 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+static uint rand_seed = 1; // Seed for the random number generator
+static uint
+rand(void) {
+  rand_seed = rand_seed * 1103515245 + 12345;
+  return rand_seed;
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -124,6 +131,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+
+  p->tickets = 100; // Default number of tickets
+  p->counter = 0; // changes done for lottery scheduling and second homework
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -275,6 +285,8 @@ kfork(void)
     return -1;
   }
   np->sz = p->sz;
+
+  np->tickets = p->tickets; // Inherit tickets from parent so this way every child has the same number of tickets as the parent
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -437,29 +449,65 @@ scheduler(void)
     intr_on();
     intr_off();
 
-    int found = 0;
+    // calculate total tickets
+    int total_tickets = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
+        if(p->tickets < 1)
+          p->tickets = 1; // ensure minimum of 1 ticket
+          total_tickets += p->tickets;
+        }
+        release(&p->lock);
+      }
+    
+
+    if (total_tickets == 0) {
+      asm volatile("wfi"); // Wait for interrupt if no RUNNABLE processes
+      continue; // restart loop
+    }
+    int random_ticket = (rand() % total_tickets) + 1; // random ticket between 1 and total_tickets to choose a winner
+
+    int acc = 0; // accumulator for tickets
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+
+      if(p->state == RUNNABLE) {
+        acc += p->tickets;
+        continue;
+      }
+
+      acc += p->tickets;
+      if(acc >= random_ticket) {
         p->state = RUNNING;
         c->proc = p;
+        p->counter++; // increment counter for the selected process
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
-        found = 1;
+        release(&p->lock);
+        break;
       }
-      release(&p->lock);
+      
+      release(&p->lock); //if not selected, release lock
+
+      // acumulate tickets and check if we reached the winning ticket
+      if(acc >= random_ticket) {
+        p->state = RUNNING;
+        c->proc = p;
+        p->counter++; // increment counter for the selected process
+        swtch(&c->context, &p->context);
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+        release(&p->lock);
+        break;
+      }
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
-    }
-  }
+  }  
 }
 
 // Switch to scheduler.  Must hold only p->lock
