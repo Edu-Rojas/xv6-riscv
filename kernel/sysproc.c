@@ -57,8 +57,6 @@ sys_sbrk(void)
     // memory, vmfault() will allocate it.
     if(addr + n < addr)
       return -1;
-    if(addr + n > TRAPFRAME)
-      return -1;
     myproc()->sz += n;
   }
   return addr;
@@ -106,4 +104,21 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_settickets(void)
+{
+  int n;
+  struct proc *p = myproc();
+  argint(0, &n);
+  if (n < 1) {
+    n = 1; // check for valid number of tickets and set minimum value to 1 as work says
+  }
+  acquire(&p->lock);
+  p->tickets = n; // set the number of tickets for the process made in a lock to avoid race conditions
+  release(&p->lock);
+
+  return 0;
+
 }
