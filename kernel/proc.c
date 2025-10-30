@@ -6,6 +6,14 @@
 #include "proc.h"
 #include "defs.h"
 
+static unsigned long rand_seed = 1;
+
+unsigned long
+rand(void) {
+  rand_seed = rand_seed * 1103515245 + 12345;
+  return (rand_seed / 65536) % 32768;
+}
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -26,12 +34,7 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-static uint rand_seed = 1; // Seed for the random number generator
-static uint
-rand(void) {
-  rand_seed = rand_seed * 1103515245 + 12345;
-  return rand_seed;
-}
+
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -433,83 +436,86 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+
+
 void
 scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-
+  
   c->proc = 0;
+  
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
-    intr_off();
-
-    // calculate total tickets
+    
+    // 1. Calcular total de tickets
     int total_tickets = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        if(p->tickets < 1)
-          p->tickets = 1; // ensure minimum of 1 ticket
-          total_tickets += p->tickets;
+        if(p->tickets < 1) {
+          p->tickets = 1;
         }
-        release(&p->lock);
+        total_tickets += p->tickets;
       }
-    
-
-    if (total_tickets == 0) {
-      asm volatile("wfi"); // Wait for interrupt if no RUNNABLE processes
-      continue; // restart loop
+      release(&p->lock);
     }
-    int random_ticket = (rand() % total_tickets) + 1; // random ticket between 1 and total_tickets to choose a winner
-
-    int acc = 0; // accumulator for tickets
+    
+    // Si no hay procesos RUNNABLE
+    if(total_tickets == 0) {
+      continue;
+    }
+    
+    // 2. Elegir ticket ganador
+    int winner = 1 + (rand() % total_tickets);
+    
+    // 3. Buscar el proceso ganador
+    int accumulated = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-
+      
       if(p->state == RUNNABLE) {
-        acc += p->tickets;
-        continue;
-      }
-
-      acc += p->tickets;
-      if(acc >= random_ticket) {
-        p->state = RUNNING;
-        c->proc = p;
-        p->counter++; // increment counter for the selected process
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        release(&p->lock);
-        break;
+        accumulated += p->tickets;
+        
+        if(accumulated >= winner) {
+          // Este proceso ganó
+          p->state = RUNNING;
+          p->counter++;
+          c->proc = p;
+          
+          swtch(&c->context, &p->context);
+          
+          c->proc = 0;
+          release(&p->lock);
+          break;
+        }
       }
       
-      release(&p->lock); //if not selected, release lock
-
-      // acumulate tickets and check if we reached the winning ticket
-      if(acc >= random_ticket) {
-        p->state = RUNNING;
-        c->proc = p;
-        p->counter++; // increment counter for the selected process
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        release(&p->lock);
-        break;
-      }
+      release(&p->lock);
     }
-  }  
+  }
 }
 
+
+// Función para mostrar estadísticas de procesos
+void
+print_process_stats(void)
+{
+  struct proc *p;
+  
+  printf("PID\tNAME\t\tTICKETS\tRUN_SLICES\n");
+  printf("---\t----\t\t-------\t----------\n");
+  
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED && p->counter > 0) {
+      printf("%d\t%s\t\t%d\t%d\n", 
+             p->pid, p->name, p->tickets, p->counter);
+    }
+    release(&p->lock);
+  }
+}
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -675,6 +681,22 @@ killed(struct proc *p)
   k = p->killed;
   release(&p->lock);
   return k;
+}
+
+int
+settickets(int n)
+{
+  struct proc *p = myproc();
+  
+  if(n < 1) {
+    n = 1;
+  }
+  
+  acquire(&p->lock);
+  p->tickets = n;
+  release(&p->lock);
+  
+  return 0;
 }
 
 // Copy to either a user address, or kernel address,

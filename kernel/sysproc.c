@@ -110,15 +110,18 @@ uint64
 sys_settickets(void)
 {
   int n;
-  struct proc *p = myproc();
   argint(0, &n);
-  if (n < 1) {
-    n = 1; // check for valid number of tickets and set minimum value to 1 as work says
+  
+  if(n < 1) {
+    n = 1;
   }
-  acquire(&p->lock);
-  p->tickets = n; // set the number of tickets for the process made in a lock to avoid race conditions
-  release(&p->lock);
+  
+  return settickets(n);
+}
 
+uint64
+sys_print_stats(void)
+{
+  print_process_stats();
   return 0;
-
 }
