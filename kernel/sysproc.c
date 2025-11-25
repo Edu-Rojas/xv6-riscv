@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "syscall.h"
 
 uint64
 sys_exit(void)
@@ -105,3 +106,40 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+<<<<<<< Updated upstream
+=======
+
+uint64
+sys_settickets(void)
+{
+  int n;
+  struct proc *p = myproc();
+  argint(0, &n);
+  if (n < 1) {
+    n = 1; // check for valid number of tickets and set minimum value to 1 as work says
+  }
+  acquire(&p->lock);
+  p->tickets = n; // set the number of tickets for the process made in a lock to avoid race conditions
+  release(&p->lock);
+
+  return 0;
+
+}
+
+//It's necessary to declare the function prototype for change_read_protection, also declare extern 
+//as it's defined in another file (vm.c)
+
+extern int change_read_protection(uint64 addr, int len, int enable_read);
+
+uint64
+sys_mrdprotect(void)
+{
+  uint64 addr;
+  int len;
+
+  if(argaddr(0, &addr) < 0 || argint(1, &len) < 0)
+    return -1;
+
+  return change_read_protection(addr, len, 0); //disable read protection
+}
+>>>>>>> Stashed changes

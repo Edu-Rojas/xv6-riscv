@@ -484,3 +484,46 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+//HERE STARTS 3RD ASSIGNMENT FUNCTIONS
+
+int
+change_read_protection(uint64 addr, int len, int enable_read)
+{
+  struct proc *p = myproc();
+  pte_t *pte;
+  uint64 va;
+  int i;
+  
+  //validate page alignment (addr multiple of 4096 and len > 0)
+  if ((addr % PGSIZE) != 0 || len <= 0)
+    return -1;
+
+//go through each page in the range, verify size obtain PTE, important security check.
+  for (i = 0; i < len; i++){
+    va = addr + i*PGSIZE;
+
+    if(va >= p->sz)
+      return -1;
+
+      pte = walk(p->pagetable, va, 0);
+
+      //pte == 0 page does not exist in page table
+      //second one checks if page is valid and mapped
+      //last one checks if page is kernel's or if user accesible
+      
+      if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+        return -1;
+
+      //modify read permission bit 
+       
+      if (enable_read) {
+        *pte |= PTE_R; //set read permission
+      } else {
+        *pte &= ~PTE_R; //clear read permission
+      }
+    }
+
+    sfence_vma(); //refresh TLB
+    return 0;
+}
